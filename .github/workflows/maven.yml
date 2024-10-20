@@ -1,72 +1,64 @@
-
-
-name: Java CI with Maven
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
   build:
-
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up JDK 17
-      uses: actions/setup-java@v3
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: maven
-    - name: Build with Maven
-      run: mvn -B package --file pom.xml
+      - name: Checkout Code
+        uses: actions/checkout@v2
 
-    - name: Trivy FS scan
-      run: |
-        trivy fs --format table -o fs.html .
+      - name: Set up JDK 11
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'adopt'
+          java-version: '11'
 
-    - name: SonarQube Scan
-      uses: sonarsource/sonarqube-scan-action@master
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      - name: Cache Maven packages
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven
 
-    - name: SonarQube Quality Gate check
-      id: sonarqube-quality-gate-check
-      uses: sonarsource/sonarqube-quality-gate-action@master
-      # Force to fail step after specific time.
-      timeout-minutes: 5
-      env:
-       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      - name: Build with Maven
+        run: mvn clean install
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
+  code_quality:
+    needs: build
+    runs-on: ubuntu-latest
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
 
-    - name: Build Docker Image
-      run: |
-        docker build -t adijaiswal/boardgame:latest .
+      - name: Run SonarQube Analysis
+        run: mvn sonar:sonar
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-    - name: Trivy Image Scan
-      run: |
-        trivy image --format table -o trivy-image-report.html adijaiswal/board:latest
-    
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+  docker:
+    needs: code_quality
+    runs-on: ubuntu-latest
 
-    - name: Push Docker Image
-      run: |
-          docker push adijaiswal/boardgame:latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
 
+      - name: Build Docker Image
+        run: docker build . -t boardshack:latest
 
-
-
+      - name: Push Docker Image to DockerHub
+        run: |
+          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+          docker tag boardshack:latest neeraj46665/boardshack:latest
+          docker push neeraj46665/boardshack:latest
