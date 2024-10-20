@@ -30,6 +30,13 @@ jobs:
       - name: Build with Maven
         run: mvn clean install
 
+      - name: Verify JAR file
+        run: |
+          if [ ! -f target/*.jar ]; then
+            echo "JAR file not found!"
+            exit 1
+          fi
+
   code_quality:
     needs: build
     runs-on: ubuntu-latest
