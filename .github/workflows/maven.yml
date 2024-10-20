@@ -44,11 +44,11 @@ jobs:
           java-version: '17'
 
       - name: Run SonarQube Analysis
-        run: mvn sonar:sonar
+        run: mvn sonar:sonar -Dsonar.java.binaries=target/classes
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-#
+
   docker:
     needs: code_quality
     runs-on: ubuntu-latest
