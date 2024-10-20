@@ -54,7 +54,7 @@ jobs:
         run: mvn clean install
 
       - name: Run SonarQube Analysis
-        run: mvn sonar:sonar -Dsonar.java.binaries=${{ github.workspace }}/target/classes
+        run: mvn sonar:sonar -Dsonar.java.binaries=target/classes
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
